@@ -1,0 +1,381 @@
+/**
+* Sheffield University Robot Football Controller
+* Guy Brown September 2008, amended Siobhan North 2014
+* Rewritten for EV3 robots SDN 2016 
+*/
+
+/**
+* @author Rachel Smith
+* @author Theo Smith
+* @author Rafael Cavagnoli
+* @author Iulian Lazarina
+*/
+
+
+import ShefRobot.*;
+
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
+
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+
+/**
+* Creates graphics window
+*/
+public class Assignment3 extends JFrame implements Runnable, KeyListener, 
+WindowListener, ActionListener {
+	
+	//Defining the behaviour of the prgram
+	enum Command {STOP, LEFT, RIGHT, FORWARD, REVERSE, GRAB, DROP, END, DANCE, 
+	MAX, SLOW};
+	private static final int DELAY_MS = 50;
+	
+	// Make the window, text label and menu
+	private static final int FRAME_WIDTH = 400;
+	private static final int FRAME_HEIGHT = 200;
+	
+	private JLabel label = new JLabel("Stop",JLabel.CENTER);
+	public Assignment3() {
+		JMenuBar menuBar = new JMenuBar();
+		JMenu menu = new JMenu("Quit");
+		JMenuItem menuItem = new JMenuItem("Really Quit?");
+		menuItem.addActionListener(this);
+		menu.add(menuItem);
+		menuBar.add(menu);
+		this.setJMenuBar(menuBar);
+		this.add(label, BorderLayout.CENTER);
+		label.setFont(new Font("SansSerif", Font.PLAIN, 48));
+		this.setBounds(0,0,FRAME_WIDTH,FRAME_HEIGHT);
+		this.setTitle("Sheffield Robot");
+		this.addKeyListener(this);
+		this.addWindowListener(this);
+		this.setLocationRelativeTo(null);
+		this.setDefaultCloseOperation(EXIT_ON_CLOSE);
+		this.setVisible(true);
+	}
+	
+	// Start the program	
+	private Command command = Command.STOP;	
+	private Robot myRobot = new Robot();
+	
+	/**
+	* Starts the program
+	* @param args the method takes args as a parameter
+	*/
+	public static void main(String[] args) {
+		Thread t = new Thread(new Assignment3());
+		t.start();
+	}
+	
+	/**
+	* A switch to determine actions based on key press
+	* @param e the key pressed by the user
+	*/
+	public void keyPressed(KeyEvent e) {
+		switch ( e.getKeyCode()) {
+			case java.awt.event.KeyEvent.VK_UP:
+				command = Command.FORWARD;
+				break;
+			case java.awt.event.KeyEvent.VK_DOWN:
+				command = Command.REVERSE;
+				break;
+			case java.awt.event.KeyEvent.VK_LEFT:
+				command = Command.LEFT;
+				break;
+			case java.awt.event.KeyEvent.VK_RIGHT:
+				command = Command.RIGHT;
+				break;
+			case java.awt.event.KeyEvent.VK_SPACE:
+				command = Command.GRAB;
+				break;
+			case java.awt.event.KeyEvent.VK_X:
+				command = Command.DROP;
+				break;
+			case java.awt.event.KeyEvent.VK_Q:
+				command = Command.END;
+				break;
+			case java.awt.event.KeyEvent.VK_D:
+				command = Command.DANCE;
+				break;
+		    case java.awt.event.KeyEvent.VK_M:
+				command = Command.MAX;
+				break;
+			case java.awt.event.KeyEvent.VK_S:
+				command = Command.SLOW;
+				break;  
+			default:
+				command = Command.STOP;
+				break;
+		}
+	}
+
+    /**
+	* Determines actions based on key release
+	* @param e the key released by the user
+	*/
+	public void keyReleased(KeyEvent e) {
+		command = Command.STOP;
+	}
+
+	/**
+	* Take in typed input
+	* @param e key press
+	*/
+	public void keyTyped(KeyEvent e) {}	
+	
+	/**
+	* Activate graphics window
+	* @param e key press
+	*/
+	public void windowActivated(WindowEvent e) {}
+	
+	/**
+	* Close graphics window
+	* @param e key press
+	*/
+	public void windowClosed(WindowEvent e) {}	
+	
+	/**
+	* Deactivate graphics window
+	* @param e key press
+	*/
+	public void windowDeactivated(WindowEvent e) {}
+	
+	/**
+	* Deiconify graphics window
+	* @param e key press
+	*/
+	public void windowDeiconified(WindowEvent e) {}
+	
+	/**
+	* Iconify graphics window
+	* @param e key press
+	*/
+	public void windowIconified(WindowEvent e) {}
+	
+	/**
+	* Open graphics window
+	* @param e key press
+	*/
+	public void windowOpened(WindowEvent e) {}
+	
+	/**
+	* Handle the quit menu item
+	* Check whether user really intends to close window and program
+	* @param e key press
+	*/
+	public void actionPerformed(ActionEvent e) {
+		if (e.getActionCommand().equals("Really Quit?")) {
+			System.out.println("Closing Bluetooth");
+			myRobot.close();
+			System.exit(0);
+		}
+	}
+	
+	/**
+	* Closes window and program
+	* @param e key press
+	*/
+	public void windowClosing(WindowEvent e) {
+		System.out.println("Closing Bluetooth");
+		myRobot.close();
+	}
+
+	/**
+	* Runs the robot program
+	* Creates motor and sensor objects
+	* Follows a black line automatically when started
+	* When blue reaches automated part of program terminates
+	* and key controls begin
+	*/
+	public void run() {
+		//This defines and names the two large motors that turn the wheels
+		Motor leftMotor = myRobot.getLargeMotor(Motor.Port.B);
+		Motor rightMotor = myRobot.getLargeMotor(Motor.Port.C);
+		Motor grabMotor = myRobot.getMediumMotor(Motor.Port.D);
+		Speaker speaker = myRobot.getSpeaker();
+        ColorSensor sensor = myRobot.getColorSensor(Sensor.Port.S1); 
+        
+		// Motor speed variables
+		int motorSpeed = 200;
+		int grabSpeed = 200;
+		int sideMotorSpeed = 120;
+		
+       // Follow Line
+       //Set motor speed
+    	leftMotor.setSpeed(motorSpeed);
+        rightMotor.setSpeed(motorSpeed);
+        
+        boolean closedState = false;
+        int c = 0;
+        Enum x = sensor.getColor();
+        while (c < 25) {
+        	// When the sensor is detecting black, the robot will move forwards
+        	while(x == ColorSensor.Color.BLACK){
+        		// Left speed higher than right speed
+        		leftMotor.setSpeed(170);
+        		rightMotor.setSpeed(150);
+        		leftMotor.forward();
+        		rightMotor.forward();
+        		x = sensor.getColor();
+        	}
+        	// When the sensor is detecting black, the robot will move forwards
+        	while(x != ColorSensor.Color.BLACK && c < 25){
+        		// Right speed higher than left speed
+        		leftMotor.setSpeed(150);
+        		rightMotor.setSpeed(170);
+        		leftMotor.forward();
+        		rightMotor.forward();
+        		x = sensor.getColor();
+        		if(x == ColorSensor.Color.BLUE) {
+        			++c;
+        			x = sensor.getColor();
+        			if (x!= ColorSensor.Color.BLUE) {
+        				c = 0;
+        			}
+        		}	
+        	}
+        	// When sensor detects blue, set a counter to ensure actually blue, then stop
+        	
+        	leftMotor.stop();
+        	rightMotor.stop();
+        	
+        } 
+        
+        // Controls
+        
+		while (true) {
+			switch (command) {
+				case STOP:
+					label.setText("Stop");
+					
+					// Cancel out current action
+					leftMotor.stop();
+					rightMotor.stop();
+					
+					break;					
+				case FORWARD:
+					label.setText("Forward");
+					
+						// Move forward when up arrow key is pressed
+						leftMotor.setSpeed(motorSpeed);
+						rightMotor.setSpeed(motorSpeed);
+						leftMotor.forward();
+						rightMotor.forward();
+						
+					
+					break;					
+				case REVERSE:
+					label.setText("Reverse");
+					
+						// Move backward when down arrow key is pressed
+						leftMotor.setSpeed(motorSpeed);
+						rightMotor.setSpeed(motorSpeed);
+						leftMotor.backward();
+						rightMotor.backward();
+					
+					break;					
+				case LEFT:
+					label.setText("Left");
+					
+						// Turn left when left arrow key is pressed
+						rightMotor.setSpeed(sideMotorSpeed);
+						rightMotor.forward();
+
+					break;
+				case RIGHT:
+					label.setText("Right");
+					
+						// Turn right when right arrow key is pressed
+						leftMotor.setSpeed(sideMotorSpeed);
+						leftMotor.forward();
+
+					break;
+				case GRAB:
+					label.setText("GRAB");
+					
+						// Claw closes when space is pressed - action does not cancel
+						grabMotor.setSpeed(grabSpeed);
+						grabMotor.backward();
+						
+
+ 					break;
+				case DROP:
+					label.setText("DROP");
+
+						// Claw opens when X is pressed - action does not cancel
+						grabMotor.setSpeed(grabSpeed);
+						grabMotor.forward();
+
+ 					break;
+				case END:
+					label.setText("END");
+
+						// Command to stop motion of claw - Q key
+						grabMotor.stop();
+
+ 					break;
+ 				case MAX:
+ 					label.setText("MAX Speed");
+ 					motorSpeed = 1400;
+ 					sideMotorSpeed = 1000;
+ 					break;
+ 				case SLOW:
+ 					label.setText("SLOWING");
+ 					motorSpeed = 200;
+ 					sideMotorSpeed = 120;
+ 					break;
+				case DANCE:
+					label.setText("DANCE");
+						
+						// An automated dance with sound called on press of D key
+						leftMotor.stop();
+						rightMotor.stop();
+					
+						rightMotor.setSpeed(200);
+						leftMotor.setSpeed(200);
+						speaker.playTone(1000,400);
+						leftMotor.backward();
+						speaker.playTone(600,400);
+						rightMotor.forward();
+						speaker.playTone(800,400);
+						
+						leftMotor.stop();
+						rightMotor.stop();
+						
+						rightMotor.backward();
+						speaker.playTone(600,400);
+						leftMotor.forward();
+						speaker.playTone(1000,400);
+						
+						rightMotor.stop();
+						leftMotor.stop();
+						
+						leftMotor.backward();
+						speaker.playTone(800,400);
+						rightMotor.forward();
+						speaker.playTone(600,400);
+						rightMotor.backward();
+						leftMotor.forward();
+						leftMotor.stop();
+						rightMotor.stop();
+					
+ 					break;
+			}
+			try {
+				Thread.sleep(DELAY_MS);
+			} catch (InterruptedException e) {};
+		}	
+	}
+
+}
